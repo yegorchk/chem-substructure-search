@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 import logging
-from typing import Iterable, List, Literal, Optional
+from collections.abc import Iterable
+from typing import Literal
 
 from rdkit import Chem
 
@@ -9,15 +10,13 @@ logger = logging.getLogger(__name__)
 
 
 def configure_logging(level: int = logging.INFO) -> None:
-    """Basic logging config for local runs/tests."""
     logging.basicConfig(
         level=level,
         format="%(asctime)s %(levelname)s %(name)s - %(message)s",
     )
 
 
-def _mol_from_smiles(smiles: str) -> Optional[Chem.Mol]:
-    """SMILES -> RDKit Mol. None if invalid. фундамент: SMILES."""
+def _mol_from_smiles(smiles: str) -> Chem.Mol | None:
     return Chem.MolFromSmiles(smiles)
 
 
@@ -26,18 +25,7 @@ def substructure_search(
     substructure: str,
     *,
     invalid_smiles: Literal["skip", "raise"] = "skip",
-) -> List[str]:
-    """
-    Substructure search using SMILES (both molecules and query are SMILES).
-
-    Returns: list of input molecule SMILES that contain the substructure.
-
-    Error handling:
-    - invalid substructure SMILES -> ValueError
-    - invalid molecule SMILES:
-        - skip (default): log warning, ignore
-        - raise: ValueError
-    """
+) -> list[str]:
     if molecules is None:
         raise TypeError("molecules must be an iterable of SMILES strings, got None")
 
@@ -45,7 +33,7 @@ def substructure_search(
     if query is None:
         raise ValueError(f"Invalid substructure SMILES: {substructure!r}")
 
-    result: List[str] = []
+    result: list[str] = []
     for s in molecules:
         mol = _mol_from_smiles(s)
         if mol is None:

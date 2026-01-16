@@ -8,8 +8,12 @@ from backend.app.schemas.search import (
     SubstructureSearchRequest,
     SubstructureSearchResponse,
     SubstructureSearchItem,
+    SimilaritySearchRequest,
+    SimilaritySearchResponse,
+    SimilaritySearchItem,
 )
-from backend.app.services.search import substructure_search_db
+
+from backend.app.services.search import substructure_search_db, similarity_search_db
 
 router = APIRouter()
 
@@ -37,4 +41,27 @@ def substructure_search(
         total=total,
         limit=payload.limit,
         offset=payload.offset,
+    )
+
+
+@router.post("/similarity-search", response_model=SimilaritySearchResponse)
+def similarity_search(payload: SimilaritySearchRequest, db: Session = Depends(get_db)):
+    try:
+        scored = similarity_search_db(
+            db,
+            query_smiles=payload.query_smiles,
+            top_k=payload.top_k,
+            threshold=payload.threshold,
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=str(e))
+
+    return SimilaritySearchResponse(
+        items=[
+            SimilaritySearchItem(id=m.id, smiles=m.smiles, name=m.name, score=score)
+            for (m, score) in scored
+        ],
+        query_smiles=payload.query_smiles,
+        top_k=payload.top_k,
+        threshold=payload.threshold,
     )

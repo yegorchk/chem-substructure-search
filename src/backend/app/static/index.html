@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="ru">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Chem Substructure Search</title>
+    <style>
+        body {
+            font-family: system-ui, sans-serif;
+            max-width: 900px;
+            margin: 24px auto;
+            padding: 0 12px;
+        }
+
+        textarea,
+        input {
+            width: 100%;
+            padding: 8px;
+        }
+
+        button {
+            padding: 8px 12px;
+            cursor: pointer;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+        }
+
+        pre {
+            background: #f6f6f6;
+            padding: 12px;
+            overflow: auto;
+        }
+
+        h2 {
+            margin-top: 24px;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>Chem Substructure Search (MVP)</h1>
+
+    <div class="grid">
+        <div>
+            <h2>Добавить молекулу</h2>
+            <label>SMILES</label>
+            <input id="addSmiles" placeholder="например: CCO" />
+            <label>Name (optional)</label>
+            <input id="addName" placeholder="например: ethanol" />
+            <button id="addBtn">POST /molecules</button>
+        </div>
+
+        <div>
+            <h2>Список</h2>
+            <button id="listBtn">GET /molecules</button>
+            <label>limit</label>
+            <input id="listLimit" value="10" />
+            <label>offset</label>
+            <input id="listOffset" value="0" />
+        </div>
+    </div>
+
+    <h2>Substructure search</h2>
+    <label>substructure_smiles</label>
+    <input id="subSmiles" placeholder="например: c1ccccc1" />
+    <button id="subBtn">POST /search</button>
+
+    <h2>Similarity search (Morgan + Tanimoto)</h2>
+    <label>query_smiles</label>
+    <input id="simSmiles" placeholder="например: CCO" />
+    <label>top_k</label>
+    <input id="simTopK" value="5" />
+    <label>threshold</label>
+    <input id="simThr" value="0.0" />
+    <button id="simBtn">POST /similarity-search</button>
+
+    <h2>Ответ</h2>
+    <pre id="out">{}</pre>
+
+    <script>
+        const out = document.getElementById("out");
+        function show(obj) { out.textContent = JSON.stringify(obj, null, 2); }
+
+        async function req(path, opts) {
+            const r = await fetch(path, opts);
+            const text = await r.text();
+            let data;
+            try { data = JSON.parse(text); } catch { data = { raw: text }; }
+            if (!r.ok) throw { status: r.status, data };
+            return data;
+        }
+
+        document.getElementById("addBtn").onclick = async () => {
+            try {
+                const smiles = document.getElementById("addSmiles").value.trim();
+                const name = document.getElementById("addName").value.trim();
+                const payload = { smiles };
+                if (name.length) payload.name = name;
+                const data = await req("/molecules", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(payload),
+                });
+                show(data);
+            } catch (e) { show(e); }
+        };
+
+        document.getElementById("listBtn").onclick = async () => {
+            try {
+                const limit = Number(document.getElementById("listLimit").value);
+                const offset = Number(document.getElementById("listOffset").value);
+                const data = await req(`/molecules?limit=${limit}&offset=${offset}`);
+                show(data);
+            } catch (e) { show(e); }
+        };
+
+        document.getElementById("subBtn").onclick = async () => {
+            try {
+                const substructure_smiles = document.getElementById("subSmiles").value.trim();
+                const data = await req("/search", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ substructure_smiles, limit: 50, offset: 0 }),
+                });
+                show(data);
+            } catch (e) { show(e); }
+        };
+
+        document.getElementById("simBtn").onclick = async () => {
+            try {
+                const query_smiles = document.getElementById("simSmiles").value.trim();
+                const top_k = Number(document.getElementById("simTopK").value);
+                const threshold = Number(document.getElementById("simThr").value);
+                const data = await req("/similarity-search", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ query_smiles, top_k, threshold }),
+                });
+                show(data);
+            } catch (e) { show(e); }
+        };
+    </script>
+</body>
+
+</html>

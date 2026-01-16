@@ -76,3 +76,34 @@ def test_search_pagination(client: TestClient):
     d2 = r2.json()
     assert d2["total"] == 2
     assert len(d2["items"]) == 1
+
+
+def test_similarity_search_returns_best_match(client: TestClient):
+    # ethanol and ethylamine are more similar to each other than benzene
+    assert (
+        client.post("/molecules", json={"smiles": "CCO", "name": "ethanol"}).status_code
+        == 201
+    )
+    assert (
+        client.post(
+            "/molecules", json={"smiles": "CCN", "name": "ethylamine"}
+        ).status_code
+        == 201
+    )
+    assert (
+        client.post(
+            "/molecules", json={"smiles": "c1ccccc1", "name": "benzene"}
+        ).status_code
+        == 201
+    )
+
+    r = client.post(
+        "/similarity-search", json={"query_smiles": "CCO", "top_k": 2, "threshold": 0.0}
+    )
+    assert r.status_code == 200, r.text
+    data = r.json()
+    assert len(data["items"]) == 2
+
+    # best match should be the same molecule (Tanimoto=1.0) if present
+    assert data["items"][0]["smiles"] == "CCO"
+    assert data["items"][0]["score"] == 1.0
